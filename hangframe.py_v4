@@ -1,0 +1,678 @@
+#!/usr/bin/env python3
+# boxes.py generator "HangFrame"
+# Copy this file to boxes/generators/hangframe.py (class name HangFrame).
+
+import math
+
+from boxes import Boxes
+
+try:  # Farbe für Beschriftungen (wird nicht geschnitten)
+    from boxes.Color import Color
+
+    ANNOTATION_COLOR = Color.ANNOTATIONS
+except Exception:
+    ANNOTATION_COLOR = [1.0, 0.0, 0.0]
+
+try:  # neuere boxes.py-Versionen: BoolArg() als Typ
+    from boxes import BoolArg
+
+    boolarg = BoolArg()
+except ImportError:  # ältere Versionen: Funktion boolarg
+    from boxes import boolarg
+
+
+class HangFrame(Boxes):
+    """Rahmen zum Einhängen von Rähmchen aus Begattungskästchen in eine Beute,
+    optionale Ständer an den Seitenwänden"""
+
+    ui_group = "Box"
+
+    def __init__(self):
+        Boxes.__init__(self)
+        add = self.argparser.add_argument
+
+        # Option "labels" von boxes.py übernehmen; falls es sie nicht gibt, selbst anlegen
+        if not any("--labels" in a.option_strings for a in self.argparser._actions):
+            add(
+                "--labels",
+                action="store",
+                type=boolarg,
+                default=True,
+                help="Maße als Beschriftung im ersten Seitenteil",
+            )
+
+        add(
+            "--x",
+            action="store",
+            type=float,
+            default=81.0,
+            help="Innenbreite zwischen den Seitenwänden (mm)",
+        )
+        add(
+            "--y",
+            action="store",
+            type=float,
+            default=470.0,
+            help="Gesamtlänge der Seitenwände inkl. Ohren (mm)",
+        )
+        add(
+            "--h",
+            action="store",
+            type=float,
+            default=40.0,
+            help="Höhe des Rahmens (mm), ohne Ständer",
+        )
+        add(
+            "--finger_width",
+            action="store",
+            type=float,
+            default=2.0,
+            help="Breite der Zinken in Vielfachen der Materialdicke",
+        )
+
+        add(
+            "--hang_height",
+            action="store",
+            type=float,
+            default=10.0,
+            help="Höhe der Aufhängung (Ohren) in mm",
+        )
+        add(
+            "--hang_inset",
+            action="store",
+            type=float,
+            default=20.0,
+            help="Ohrenlänge. Abstand der Außenseite von Stirn-/Rückwand zum äußeren Ende (mm)",
+        )
+
+        add(
+            "--brace",
+            action="store",
+            type=boolarg,
+            default=True,
+            help="Verstrebung zwischen den Ohren der beiden Seitenwände (an beiden Enden)",
+        )
+        add(
+            "--brace_height",
+            action="store",
+            type=float,
+            default=10.0,
+            help="Höhe der Verstrebungen (mm)",
+        )
+        add(
+            "--brace_tenon_inset",
+            action="store",
+            type=float,
+            default=3.0,
+            help="Zapfen der Verstrebung: wie viel schmäler (oben und unten je) als die Leiste, "
+            "ebenso das Loch in den Seitenwänden (mm)",
+        )
+        add(
+            "--brace_offset",
+            action="store",
+            type=float,
+            default=5.0,
+            help="Abstand der Verstrebung vom äußeren Ende des Ohrs (mm)",
+        )
+
+        add(
+            "--notch_width",
+            action="store",
+            type=float,
+            default=25.0,
+            help="Breite Rähmchen zum Einhängen (mm)",
+        )
+        add(
+            "--notch_pitch",
+            action="store",
+            type=float,
+            default=35.0,
+            help="Abstand von Mitte zu Mitte der Rähmchen (mm)",
+        )
+        add(
+            "--notch_depth",
+            action="store",
+            type=float,
+            default=10.0,
+            help="Tiefe der Einkerbungen (mm)",
+        )
+        add(
+            "--notch_radius",
+            action="store",
+            type=float,
+            default=1.0,
+            help="Radius der Abrundung an der Oberseite der Einkerbungen (mm)",
+        )
+        add(
+            "--notch_spacing",
+            action="store",
+            type=float,
+            default=5.0,
+            help="Mindestabstand an beiden Enden von der Innenseite der Stirnwand (mm); ",
+        )
+        add(
+            "--notch_continuous",
+            action="store",
+            type=boolarg,
+            default=False,
+            help="eine durchgehende vertiefte Leiste ohne Einkerbungen",
+        )
+
+        # Untermenü "Settings for Stand"
+        sadd = self.argparser.add_argument_group("Settings for Stand").add_argument
+        sadd(
+            "--stands",
+            action="store",
+            type=boolarg,
+            default=False,
+            help="Ständer an den Seitenwänden (zieht Stirn- und Rückwand nach unten)",
+        )
+        sadd(
+            "--stand_top_width",
+            action="store",
+            type=float,
+            default=50.0,
+            help="Breite der Ständer oben, am Rahmen (mm)",
+        )
+        sadd(
+            "--stand_bottom_width",
+            action="store",
+            type=float,
+            default=30.0,
+            help="Breite der Ständer unten (mm)",
+        )
+        sadd(
+            "--stand_height",
+            action="store",
+            type=float,
+            default=50.0,
+            help="Höhe der Ständer zusätzlich zur Rahmenhöhe (mm)",
+        )
+        sadd(
+            "--stand_radius",
+            action="store",
+            type=float,
+            default=1.0,
+            help="Abrundung der unteren Ecken der Ständer (mm)",
+        )
+        sadd(
+            "--stand_brace",
+            action="store",
+            type=boolarg,
+            default=True,
+            help="Verstrebung auch unten an den Ständern (nur wenn Ständer aktiv)",
+        )
+        sadd(
+            "--stand_brace_offset",
+            action="store",
+            type=float,
+            default=5.0,
+            help="Abstand der unteren Verstrebung von der Außenkante der Ständer (mm)",
+        )
+        sadd(
+            "--stand_brace_bottom",
+            action="store",
+            type=float,
+            default=5.0,
+            help="Abstand der Unterkante der unteren Verstrebung vom unteren Rand der Ständer (mm)",
+        )
+        sadd(
+            "--endwall_extension",
+            action="store",
+            type=float,
+            default=20.0,
+            help="Stirn- und Rückwand bei aktiven Ständern weiter nach unten ziehen (mm)",
+        )
+
+    # ------------------------------------------------------------------
+    def checkParams(self):
+        t = self.thickness
+        l = self.hang_inset + t
+        if self.y - 2 * l <= 0:
+            raise ValueError("y ist zu kurz für Ohren und Stirn-/Rückwand")
+        if not 0 < self.hang_height < self.h:
+            raise ValueError("hang_height muss größer 0 und kleiner als h sein")
+        if self.brace:
+            if self.brace_offset < 2 or self.brace_offset + t > self.hang_inset - 1:
+                raise ValueError(
+                    "Verstrebung passt nicht ins Ohr: brace_offset + Materialdicke muss kleiner "
+                    "als hang_inset - 1 sein (und brace_offset mindestens 2)"
+                )
+            if (
+                self.brace_tenon_inset < 0
+                or 2 * self.brace_tenon_inset >= self.brace_height
+            ):
+                raise ValueError("brace_tenon_inset ist zu groß für brace_height")
+            if self.hang_height < self.brace_height:
+                raise ValueError(
+                    "hang_height ist zu klein für die Höhe der Verstrebung (brace_height)"
+                )
+        if self.stands:
+            if self.stand_height < self.endwall_extension:
+                raise ValueError(
+                    "stand_height muss mindestens so groß sein wie endwall_extension"
+                )
+            if 2 * self.stand_top_width > self.y - 2 * l:
+                raise ValueError("Die Ständer sind zu breit für die Seitenwand")
+            if self.stand_top_width <= 0 or self.stand_bottom_width <= 0:
+                raise ValueError("Die Ständerbreiten müssen größer 0 sein")
+            if self.stand_brace:
+                if (
+                    self.stand_brace_bottom < 2
+                    or self.stand_brace_bottom + self.brace_height
+                    > self.stand_height - 2
+                ):
+                    raise ValueError(
+                        "Die untere Verstrebung passt nicht in die Ständerhöhe: "
+                        "stand_brace_bottom + brace_height muss kleiner als stand_height - 2 sein"
+                    )
+                if (
+                    self.stand_brace_offset < 2
+                    or self.stand_brace_offset + t
+                    > min(self.stand_top_width, self.stand_bottom_width) - 1
+                ):
+                    raise ValueError(
+                        "Die untere Verstrebung passt nicht in den Ständer (stand_brace_offset)"
+                    )
+
+    # ------------------------------------------------------------------
+    def jointSegments(self):
+        """Zinkenverbindung Seitenwand <-> Stirn-/Rückwand über die volle Höhe.
+        Liefert (z_unten, Segmente von unten nach oben). 'E' = Zinken der Stirn-/Rückwand,
+        'S' = Zinken der Seitenwand. Unten ist immer 'E', oben immer 'S'."""
+        t = self.thickness
+        zj0 = -self.endwall_extension if self.stands else 0.0
+        Lj = self.h - zj0
+        n = max(1, int(round(Lj / (2 * self.finger_width * t))))
+        w = Lj / (2 * n)
+        segs = []
+        for k in range(2 * n):
+            zb = zj0 + k * w
+            segs.append((zb, zb + w, "E" if k % 2 == 0 else "S"))
+        return zj0, segs
+
+    # ------------------------------------------------------------------
+    def rightJoint(self, x1, segs):
+        """Rechte Seite der Seitenwand von unten nach oben: Zinken und Ohr.
+        Liefert (Punkte, Löcher). Im Bereich des Ohrs werden die Lücken zu
+        geschlossenen Löchern, durch die die Zinken der Stirn-/Rückwand ragen."""
+        t = self.thickness
+        x2 = x1 + t
+        x3 = x2 + self.hang_inset
+        ze = self.h - self.hang_height
+        eps = 1e-6
+        pts, holes = [], []
+        ear = False
+        for zb, zt, typ in segs:
+            if ear:
+                if typ == "E":
+                    holes.append((x1, zb, x2, zt))
+                continue
+            if zt <= ze + eps:  # komplett unterhalb des Ohrs
+                if typ == "S":
+                    if zt >= ze - eps:  # Zinken endet genau an der Ohr-Unterkante
+                        pts += [(x1, zb), (x2, zb), (x2, ze), (x3, ze)]
+                        ear = True
+                    else:
+                        pts += [(x1, zb), (x2, zb), (x2, zt), (x1, zt)]
+            elif zb < ze - eps:  # Segment liegt über der Ohr-Unterkante
+                if typ == "S":
+                    pts += [(x1, zb), (x2, zb), (x2, ze), (x3, ze)]
+                else:
+                    pts += [(x1, zt), (x2, zt), (x2, ze), (x3, ze)]
+                ear = True
+            else:  # beginnt genau an der Ohr-Unterkante
+                pts += [(x1, ze), (x3, ze)]
+                ear = True
+                if typ == "E":
+                    holes.append((x1, zb, x2, zt))
+        pts.append((x3, self.h))
+        return pts, holes
+
+    # ------------------------------------------------------------------
+    def notchLayout(self, l):
+        """Prüft die Einkerbungs-Parameter und liefert die linken Kanten der Einkerbungen
+        (x-Positionen von der Stirnseite aus).
+        Es werden immer so viele Einkerbungen gemacht, wie hineinpassen; die Gruppe sitzt
+        mittig zwischen Stirn- und Rückwand."""
+        nw, pitch, d = self.notch_width, self.notch_pitch, self.notch_depth
+        sp, r = self.notch_spacing, self.notch_radius
+        T = self.y - 2 * l  # Länge zwischen den Innenseiten von Stirn- und Rückwand
+
+        if r > d or 2 * r > nw:
+            raise ValueError("notch_radius ist zu groß für Tiefe/Breite der Einkerbung")
+        if pitch <= 0:
+            raise ValueError("notch_pitch muss größer 0 sein")
+        if not self.notch_continuous and pitch - nw < 2 * r:
+            raise ValueError(
+                "notch_pitch ist zu klein: mindestens notch_width + 2 * notch_radius = %.1f mm"
+                % (nw + 2 * r)
+            )
+        if sp < r:
+            raise ValueError(
+                "notch_spacing muss mindestens so groß sein wie notch_radius"
+            )
+
+        # So viele wie passen, als Gruppe mittig zwischen Stirn- und Rückwand
+        if T - 2 * sp - nw < -1e-6:
+            return []
+        n = int((T - 2 * sp - nw + 1e-6) // pitch) + 1
+        span = (n - 1) * pitch + nw
+        start = l + (T - span) / 2.0
+        return [start + i * pitch for i in range(n)]
+
+    def notchCount(self, l):
+        return len(self.notchLayout(l))
+
+    def notchPoints(self, l):
+        """Einkerbungen oben, von rechts (Rückseite) nach links (Stirnseite).
+        Bei notch_continuous eine einzige durchgehende Vertiefung ohne Spitzen."""
+        nw, d, r = self.notch_width, self.notch_depth, self.notch_radius
+        starts = self.notchLayout(l)
+        if not starts:
+            return []
+        if self.notch_continuous:
+            spans = [(starts[0], starts[-1] + nw)]
+        else:
+            spans = [(a, a + nw) for a in starts]
+        pts = []
+        for a, b in reversed(spans):  # a = linke Kante, b = rechte Kante
+            pts += [
+                (b, self.h, r),
+                (b, self.h - d, 0),
+                (a, self.h - d, 0),
+                (a, self.h, r),
+            ]
+        return pts
+
+    # ------------------------------------------------------------------
+    def cleanPolygon(self, pts):
+        """Doppelte und auf einer Geraden liegende Punkte entfernen."""
+        res = []
+        for p in pts:
+            if res and abs(p[0] - res[-1][0]) < 1e-9 and abs(p[1] - res[-1][1]) < 1e-9:
+                res[-1] = (p[0], p[1], max(p[2], res[-1][2]))
+            else:
+                res.append(tuple(p))
+        if (
+            len(res) > 1
+            and abs(res[0][0] - res[-1][0]) < 1e-9
+            and abs(res[0][1] - res[-1][1]) < 1e-9
+        ):
+            last = res.pop()
+            res[0] = (res[0][0], res[0][1], max(res[0][2], last[2]))
+        i = 0
+        while i < len(res) and len(res) > 3:
+            a, b, c = res[i - 1], res[i], res[(i + 1) % len(res)]
+            cross = (b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0])
+            dot = (b[0] - a[0]) * (c[0] - b[0]) + (b[1] - a[1]) * (c[1] - b[1])
+            if abs(cross) < 1e-9 and dot > 0:
+                del res[i]
+            else:
+                i += 1
+        # Startpunkt muss eine scharfe Ecke sein
+        start = next((k for k, p in enumerate(res) if p[2] == 0), 0)
+        return res[start:] + res[:start]
+
+    def drawPolygon(self, pts):
+        """Zeichnet ein geschlossenes Polygon (gegen den Uhrzeigersinn).
+        pts: Liste von (x, z, Radius). Ecken mit Radius > 0 werden abgerundet."""
+        pts = self.cleanPolygon(pts)
+        n = len(pts)
+        lens, angs = [], []
+        for i in range(n):
+            x0, z0, _ = pts[i]
+            x1, z1, _ = pts[(i + 1) % n]
+            lens.append(math.hypot(x1 - x0, z1 - z0))
+            angs.append(math.degrees(math.atan2(z1 - z0, x1 - x0)))
+        turns = []
+        for i in range(n):
+            j = (i + 1) % n
+            turn = (angs[j] - angs[i] + 180.0) % 360.0 - 180.0
+            r = pts[j][2]
+            if r > 0 and abs(turn) > 1e-6:
+                d = r * math.tan(math.radians(abs(turn)) / 2.0)
+                lens[i] -= d
+                lens[j] -= d
+                turns.append((turn, r))
+            else:
+                turns.append(turn)
+        args = []
+        for length, turn in zip(lens, turns):
+            if length < -1e-6:
+                raise ValueError("Abrundung ist zu groß für eine der Kanten")
+            args += [max(length, 0.0), turn]
+        self.ctx.save()
+        self.moveTo(pts[0][0], pts[0][1], angs[0])
+        self.polyline(*args)
+        self.ctx.stroke()
+        self.ctx.restore()
+
+    # ------------------------------------------------------------------
+    def sideWall(self, move=None, info=False):
+        t = self.thickness
+        l = self.hang_inset + t  # Ohr: äußeres Ende -> Innenseite der Stirnwand
+        x1 = self.y - l  # Zinkenlinie rechts
+        zj0, segs = self.jointSegments()
+        sh = self.stand_height if self.stands else 0.0
+
+        tw, th = self.y, self.h + sh
+        if self.beginPart(tw, th, move):
+            return
+
+        right, holes = self.rightJoint(x1, segs)
+        R = []
+        if self.stands:
+            R += [
+                (x1 - self.stand_top_width, 0, 0),
+                (x1 - self.stand_bottom_width, -sh, self.stand_radius),
+                (x1, -sh, self.stand_radius),
+                (x1, zj0, 0),
+            ]
+        else:
+            R += [(x1, 0, 0)]
+        R += [(x, z, 0) for x, z in right]
+
+        mirror = lambda p: (self.y - p[0], p[1], p[2])
+        poly = R + self.notchPoints(l) + [mirror(p) for p in reversed(R)]
+        self.drawPolygon([(x, z + sh, r) for x, z, r in poly])
+
+        for hx1, hz0, hx2, hz1 in holes:
+            for ax1, ax2 in ((hx1, hx2), (self.y - hx2, self.y - hx1)):
+                self.rectangularHole(
+                    (ax1 + ax2) / 2, (hz0 + hz1) / 2 + sh, ax2 - ax1, hz1 - hz0
+                )
+        if self.brace:
+            zc = self.h - self.hang_height / 2.0 + sh
+            for cx in (
+                self.brace_offset + t / 2.0,
+                self.y - self.brace_offset - t / 2.0,
+            ):
+                self.rectangularHole(
+                    cx, zc, t, self.brace_height - 2 * self.brace_tenon_inset
+                )
+        if self.stands and self.stand_brace:
+            zc = (
+                self.stand_brace_bottom + self.brace_height / 2.0
+            )  # ab Ständer-Unterkante
+            for cx in (
+                l + self.stand_brace_offset + t / 2.0,
+                self.y - l - self.stand_brace_offset - t / 2.0,
+            ):
+                self.rectangularHole(
+                    cx, zc, t, self.brace_height - 2 * self.brace_tenon_inset
+                )
+        if info and getattr(self, "labels", True):
+            self.writeLabels(
+                l + 15,
+                sh
+                + self.h
+                - self.notch_depth
+                - 3
+                - 6,  # 3 for space, 6 for text-height
+            )
+        self.move(tw, th, move)
+
+    # ------------------------------------------------------------------
+    def drawLine(self, pts):
+        """Zeichnet einen offenen Linienzug mit scharfen Ecken. pts: Liste von (x, z)."""
+        res = []
+        for p in pts:
+            if (
+                not res
+                or abs(p[0] - res[-1][0]) > 1e-9
+                or abs(p[1] - res[-1][1]) > 1e-9
+            ):
+                res.append(p)
+        k = 1
+        while k < len(res) - 1:  # Punkte auf einer Geraden entfernen
+            a, b, c = res[k - 1], res[k], res[k + 1]
+            cross = (b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0])
+            dot = (b[0] - a[0]) * (c[0] - b[0]) + (b[1] - a[1]) * (c[1] - b[1])
+            if abs(cross) < 1e-9 and dot > 0:
+                del res[k]
+            else:
+                k += 1
+        if len(res) < 2:
+            return
+        lens, angs = [], []
+        for a, b in zip(res, res[1:]):
+            lens.append(math.hypot(b[0] - a[0], b[1] - a[1]))
+            angs.append(math.degrees(math.atan2(b[1] - a[1], b[0] - a[0])))
+        args = []
+        for j, length in enumerate(lens):
+            args.append(length)
+            if j < len(lens) - 1:
+                args.append((angs[j + 1] - angs[j] + 180.0) % 360.0 - 180.0)
+        self.ctx.save()
+        self.moveTo(res[0][0], res[0][1], angs[0])
+        self.polyline(*args)
+        self.ctx.stroke()
+        self.ctx.restore()
+
+    def braceStack(self, n, move=None):
+        """n Verstrebungen übereinander mit gemeinsamen langen Kanten (der Laser schneidet
+        jede lange Kante nur einmal). Senkrecht stehende Leisten mit Zapfen an beiden Enden:
+        Zapfen (Länge = Materialdicke) oben und unten je brace_tenon_inset schmäler."""
+        t = self.thickness
+        hb = self.brace_height
+        i = self.brace_tenon_inset
+        W = self.x + 2 * t
+        tw, th = W, n * hb
+        if self.beginPart(tw, th, move):
+            return
+        for k in range(n + 1):  # gemeinsame lange Kanten
+            self.drawLine([(t, k * hb), (W - t, k * hb)])
+        for k in range(n):
+            z0 = k * hb
+            self.drawLine(
+                [
+                    (t, z0),
+                    (t, z0 + i),
+                    (0, z0 + i),
+                    (0, z0 + hb - i),
+                    (t, z0 + hb - i),
+                    (t, z0 + hb),
+                ]
+            )
+            self.drawLine(
+                [
+                    (W - t, z0),
+                    (W - t, z0 + i),
+                    (W, z0 + i),
+                    (W, z0 + hb - i),
+                    (W - t, z0 + hb - i),
+                    (W - t, z0 + hb),
+                ]
+            )
+        self.move(tw, th, move)
+
+    # ------------------------------------------------------------------
+    def endWall(self, move=None):
+        t = self.thickness
+        W = self.x + 2 * t
+        zj0, segs = self.jointSegments()
+        tw, th = W, self.h - zj0
+        if self.beginPart(tw, th, move):
+            return
+
+        R = [(W, zj0, 0)]
+        for zb, zt, typ in segs:
+            if typ == "S":
+                R += [(W, zb, 0), (W - t, zb, 0), (W - t, zt, 0)]
+                if zt < self.h - 1e-9:
+                    R.append((W, zt, 0))
+        mirror = lambda p: (W - p[0], p[1], p[2])
+        poly = R + [mirror(p) for p in reversed(R)]
+        self.drawPolygon([(x, z - zj0, r) for x, z, r in poly])
+        self.move(tw, th, move)
+
+    # ------------------------------------------------------------------
+    # Beschriftung: Maße als Text im ersten Seitenteil (Option "labels" von boxes.py)
+    def beginPart(self, tw, th, move):
+        return self.move(tw, th, move, True)
+
+    def dimensionLines(self):
+        t = self.thickness
+        l = self.hang_inset + t
+        T = self.y - 2 * l
+        starts = self.notchLayout(l)
+        n = len(starts)
+        if n:
+            front = starts[0] - l
+            back = (l + T) - (starts[-1] + self.notch_width)
+            notch_line = "Einkerbungen %d | Rand vorn %.1f | hinten %.1f" % (
+                n,
+                front,
+                back,
+            )
+            if self.notch_continuous:
+                notch_line = (
+                    "Vertiefung durchgehend, Breite %.1f | Rand vorn %.1f | hinten %.1f"
+                    % (
+                        starts[-1] + self.notch_width - starts[0],
+                        front,
+                        back,
+                    )
+                )
+        else:
+            notch_line = "Einkerbungen 0"
+        lines = [
+            "Breite %.1f | Innen %.1f" % (self.x + 2 * t, self.x),
+            "Ohr %.1f | Rahmenkoerper %.1f" % (self.hang_inset, T),
+            notch_line,
+        ]
+        if self.stands:
+            lines.append(
+                "Rahmenhoehe %.1f | Gesamthoehe %.1f (mit Staendern)"
+                % (self.h, self.h + self.stand_height)
+            )
+        else:
+            lines.append("Rahmenhoehe %.1f" % self.h)
+        return lines
+
+    def writeLabels(self, x, z):
+        """Schreibt die Maße zeilenweise ab Position (x, z) nach unten."""
+        for k, line in enumerate(self.dimensionLines()):
+            try:
+                self.text(
+                    line,
+                    x,
+                    z - 9.0 * k,
+                    fontsize=6,
+                    align="left",
+                    color=ANNOTATION_COLOR,
+                )
+            except TypeError:
+                self.text(line, x, z - 9.0 * k)
+
+    # ------------------------------------------------------------------
+    def render(self):
+        self.checkParams()
+        self.sideWall(move="right", info=True)
+        self.sideWall(move="right")
+        self.endWall(move="right")
+        self.endWall(move="right")
+        n = (2 if self.brace else 0) + (2 if self.stands and self.stand_brace else 0)
+        if n:
+            self.braceStack(n, move="right")
